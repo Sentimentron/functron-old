@@ -1,6 +1,7 @@
 import base64
 import copy
 import json
+import numbers
 import os
 import tarfile
 import tempfile
@@ -48,13 +49,14 @@ class FunctronResponse:
 
 class FunctronInvocation:
 
-    def __init__(self, name):
+    def __init__(self, name, timeout=5.0):
         self.dockerfile = None
         self.tarfp = tempfile.NamedTemporaryFile()
         self.tar = tarfile.TarFile(self.tarfp.name, mode='w')
         self.name = name
         self.stdin = None
         self._closed = False
+        self.set_timeout(timeout)
 
     def __enter__(self):
         return self
@@ -73,6 +75,15 @@ class FunctronInvocation:
             raise AssertionError("Tar file is closed")
         self.tar.add(path_to_files, new_name)
 
+    def set_timeout(self, timeout):
+        if timeout is not None:
+            if isinstance(timeout, numbers.Number):
+                if timeout <= 0:
+                    raise ValueError("timeout: should be greater than 0")
+                self.timeout = timeout
+            else:
+                raise TypeError("Timeout must be a float or integer")
+
     def set_stdin(self, stdin):
         self.stdin = base64.b64encode(stdin)
 
@@ -87,15 +98,18 @@ class FunctronInvocation:
             "FnName": self.name,
             "DockerFile": self.dockerfile,
             "TarFile": encoded_tar_file.decode('ascii'),
-            "Stdin": ""
+            "Stdin": "",
+            "Timeout": self.timeout
         }
         if self.stdin:
             ret["Stdin"] = self.stdin.decode('ascii')
         return ret
 
-    def invoke(self, url, stdin=None) -> FunctronResponse:
+    def invoke(self, url, stdin=None, timeout=None) -> FunctronResponse:
         if stdin:
             self.set_stdin(stdin)
+        if timeout:
+            self.set_timeout(timeout)
         json = self.to_json()
         response = requests.post(url, json=json)
         return FunctronResponse.from_json(response.json())

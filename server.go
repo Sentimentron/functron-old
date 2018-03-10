@@ -18,6 +18,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Functron implements a very basic model for running-on-demand functions:
@@ -27,6 +28,7 @@ import (
 //      TarFile: "Base64EncodedTarFileCopiedBeforeDockerBuild"
 //      StdInput: "Base64EncodedStandardInput"
 //      Cmd: "PathToExecutableInsideTarFile"
+//      Timeout: 5.0
 // }
 // Each response looks like this:
 // {
@@ -40,6 +42,7 @@ type Request struct {
 	TarFile    string
 	FnName     string
 	Stdin      string
+	Timeout    float64
 
 	tarFile []byte
 }
@@ -111,7 +114,7 @@ func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 
 	var r Request
 	out := make(map[string]interface{})
-	out["Errors"] = ""
+	out["Errors"] = make([]string, 0)
 	out["CmdErr"] = ""
 	out["CmdOut"] = ""
 	out["CleanupErr"] = ""
@@ -119,16 +122,20 @@ func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 	out["BuildContextStderr"] = ""
 	out["BuildContextStdout"] = ""
 
+	addError := func(strError string) {
+		errorList := out["Errors"].([]string)
+		errorList = append(errorList, strError)
+		out["Errors"] = errorList
+	}
+
 	returnError := func(strError string) {
-		out["Errors"] = strError
+		addError(strError)
 		http.Error(w, "", 400)
 		JSON(out, w)
 	}
 
 	returnRealError := func(err error) {
-		out["Errors"] = err.Error()
-		http.Error(w, "", 400)
-		JSON(out, w)
+		returnError(err.Error())
 	}
 
 	// Check that the client sent the body
@@ -155,6 +162,14 @@ func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	defer req.Body.Close()
+
+	// Parse and validate the timeout
+	waitDuration, err := time.ParseDuration(fmt.Sprintf("%.2fs", r.Timeout))
+	if err != nil {
+		log.Printf("Request decode failure: '%s'", err)
+		returnRealError(err)
+		return
+	}
 
 	// base64decode the stdin
 	stdInReader := strings.NewReader(r.Stdin)
@@ -218,15 +233,57 @@ func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 	log.Printf("Doing '%s'...", execCmd.Args)
 	execCmd.Dir = dir
 	execCmd.Stdin = stdInDecoder
-	invokeOut, err := execCmd.Output()
+	cmdStderr, err := execCmd.StderrPipe()
 	if err != nil {
-		out["CmdErr"] = err.Error()
+		panic(err)
+	}
+	cmdStdout, err := execCmd.StdoutPipe()
+	if err != nil {
+		panic(err)
+	}
+	err = execCmd.Start()
+	if err != nil {
+		returnError("Can't start command")
+		return
+	}
+
+	// Wait for the specified timeout
+	time.Sleep(waitDuration)
+
+	// Kill the command if it hasn't completed yet
+	if execCmd.ProcessState == nil {
+		err = execCmd.Process.Kill()
+		if err != nil {
+			panic(err)
+		}
+		addError("Process exceeded timeout")
+	} else {
+		if !execCmd.ProcessState.Exited() {
+			err = execCmd.Process.Kill()
+			if err != nil {
+				panic(err)
+			}
+			addError("Process exceeded timeout")
+		} else if !execCmd.ProcessState.Success() {
+			addError("Process did not exit right")
+		}
 	}
 
 	// Base64-Encode the output
 	outputBuffer := bytes.NewBuffer(make([]byte, 0))
 	outputEncoder := base64.NewEncoder(base64.StdEncoding, outputBuffer)
-	outputEncoder.Write(invokeOut)
+	_, err = io.Copy(outputEncoder, cmdStdout)
+	if err != nil {
+		addError("Can't read stderr correctly")
+		return
+	}
+	errorOutput, err := ioutil.ReadAll(cmdStderr)
+	if err != nil {
+		out["CmdErr"] = err.Error()
+	} else if len(errorOutput) > 0 {
+		out["CmdErr"] = errorOutput
+	}
+
 	outputEncoder.Close()
 
 	out["CmdOut"] = string(outputBuffer.Bytes())
