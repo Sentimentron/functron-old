@@ -187,7 +187,7 @@ func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 		JSON(out, w)
 		return
 	}
-	log.Printf("Wrote DockerFile...")
+	log.Printf("Wrote Dockerfile...")
 
 	// Unpack the tar file into that directory (do not allow escaping)
 	tr := tar.NewReader(base64Decoder)
@@ -205,8 +205,9 @@ func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		errCvt := err.(*exec.ExitError)
 		out["BuildContextStderr"] = errCvt.Stderr
+		out["DetailedError"] = err.Error()
 		log.Printf("Failed to build Docker image, error was: '%s', output was '%s'", err, errCvt.Stderr)
-		returnError(err.Error())
+		returnError("BuildFailure")
 		return
 	}
 	log.Printf("Built the docker image with id '%s'. Running...", tag)

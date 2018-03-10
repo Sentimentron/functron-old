@@ -19,8 +19,12 @@ class FunctronValuePair:
         key2 = orig[key2]
         if decode_stderr and len(key1) > 0:
             key1 = base64.b64decode(key1)
+        elif len(key1) == 0:
+            key1 = None
         if decode_stdout and len(key2) > 0:
             key2 = base64.b64decode(key2)
+        elif len(key2) == 0:
+            key2 = None
         return FunctronValuePair(key1, key2)
 
 class FunctronResponse:
@@ -86,9 +90,7 @@ class FunctronInvocation:
 
     def invoke(self, url) -> FunctronResponse:
         json = self.to_json()
-        print(json)
         response = requests.post(url, json=json)
-        print(response.text)
         return FunctronResponse.from_json(response.json())
 
 
@@ -98,13 +100,24 @@ class TestInvoke(unittest.TestCase):
         self.path = os.path.dirname(os.path.realpath(__file__))
         self.url = "http://localhost:8081/"
 
+    def get_path(self, test_fn):
+        return os.path.join(self.path, test_fn, "Dockerfile")
+
     def test_basic_stdout(self):
         with FunctronInvocation("test-hello-world") as fi:
-            fi.set_dockerfile(os.path.join(self.path, "test_fn_hello_world/Dockerfile"))
+            fi.set_dockerfile(self.get_path("test_fn_hello_world"))
             fi.add_files(os.path.join(self.path, "test_fn_hello_world/"))
             response = fi.invoke(self.url)
-            self.assertEqual('', response.build_out.stderr)
-            self.assertEqual('', response.cmd_out.stderr)
-            print(response.build_out.stdout)
+            self.assertEqual(None, response.build_out.stderr)
+            self.assertEqual(None, response.cmd_out.stderr)
             self.assertEqual(b"Hello World!\n", response.cmd_out.stdout)
+
+    def test_build_failure(self):
+        with FunctronInvocation("test-hello-world-build-failure") as fi:
+            fi.set_dockerfile(self.get_path("test_fn_build_failure"))
+            fi.add_files(os.path.join(self.path, "test_fn_build_failure"))
+            response = fi.invoke(self.url)
+            self.assertNotEqual(None, response.build_out.stderr)
+            self.assertEqual(None, response.cmd_out.stderr)
+
 
