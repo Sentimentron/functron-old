@@ -1,10 +1,10 @@
-# functron
+# _functron_
 
 Functron helps you build systems that need to execute trusted user-provided
 input. It builds, runs, and captures the results of user functions entirely
 from an API.
 
-## Is functron useful for me?
+## Is _functron_ useful for me?
 
 Probably not, but there are some circumstances that it can be useful:
 * A CRM that lets adminstrative users write custom functions to filter customers.
@@ -20,7 +20,7 @@ Put simply, you must:
 * Trust the users who are going to be putting code into the containers.
 * Control the environment the service runs in.
 
-## How do I invoke functron requests?
+## How do I call remote functions?
 
 A request looks like the following:
 
@@ -35,8 +35,8 @@ A request looks like the following:
 
 The `DockerFile` contains the raw text of a Dockerfile that will be used to build
 the container which will execute the code. There are some rules:
-* `ADD` and its friends are not supported
-* The function must be specified with `CMD`
+* `ADD` and its friends are not supported.
+* The function must be specified with `CMD`.
 
 `FnName` is just so you can go back in and clean up the containers if there's a problem.
 
@@ -48,3 +48,5 @@ can rely on.
 
 `Timeout` consists of the maximum time that this function is allowed to run. If execution exceeds this
 time, the container will be killed automatically.
+
+A reference client is provided in the `python/` directory.
