@@ -120,4 +120,10 @@ class TestInvoke(unittest.TestCase):
             self.assertNotEqual(None, response.build_out.stderr)
             self.assertEqual(None, response.cmd_out.stderr)
 
-
+    def test_invoke_failure(self):
+        with FunctronInvocation("test-hello-world-invoke-failure") as fi:
+            fi.set_dockerfile(self.get_path("test_fn_invoke_failure"))
+            fi.add_files(os.path.join(self.path, "test_fn_invoke_failure"))
+            response = fi.invoke(self.url)
+            self.assertEqual(None, response.build_out.stderr)
+            self.assertNotEqual(None, response.cmd_out.stderr)
