@@ -1,4 +1,6 @@
 import base64
+import copy
+import json
 import os
 import tarfile
 import tempfile
@@ -26,18 +28,23 @@ class FunctronValuePair:
         return FunctronValuePair(key1, key2)
 
 class FunctronResponse:
-    def __init__(self, errors, build_context:FunctronValuePair, cleanup:FunctronValuePair, cmd:FunctronValuePair):
+    def __init__(self, errors, build_context:FunctronValuePair, cleanup:FunctronValuePair, cmd:FunctronValuePair, json=None):
         self.build_out = build_context
         self.cleanup_out = cleanup
         self.cmd_out = cmd
         self.errors = errors
+        self.json = json
+
+
+    def __str__(self):
+        return "FunctronResponse({})".format(json.dumps(self.json, indent=4, sort_keys=True))
 
     @classmethod
     def from_json(self, json):
         build = FunctronValuePair.from_json(json, "BuildContextStderr", "BuildContextStdout")
         cmd = FunctronValuePair.from_json(json, "CmdErr", "CmdOut", False, True)
         cleanup = FunctronValuePair.from_json(json, "CleanupErr", "CleanupOut")
-        return FunctronResponse(json["Errors"], build, cleanup, cmd)
+        return FunctronResponse(json["Errors"], build, cleanup, cmd, copy.deepcopy(json))
 
 class FunctronInvocation:
 
@@ -86,7 +93,9 @@ class FunctronInvocation:
             ret["Stdin"] = self.stdin.decode('ascii')
         return ret
 
-    def invoke(self, url) -> FunctronResponse:
+    def invoke(self, url, stdin=None) -> FunctronResponse:
+        if stdin:
+            self.set_stdin(stdin)
         json = self.to_json()
         response = requests.post(url, json=json)
         return FunctronResponse.from_json(response.json())

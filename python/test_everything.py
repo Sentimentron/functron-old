@@ -1,5 +1,5 @@
 import unittest
-from functron import *
+from pyfunctron import *
 
 class TestInvoke(unittest.TestCase):
 
@@ -13,7 +13,7 @@ class TestInvoke(unittest.TestCase):
     def test_basic_stdout(self):
         with FunctronInvocation("test-hello-world") as fi:
             fi.set_dockerfile(self.get_path("test_fn_hello_world"))
-            fi.add_files(os.path.join(self.path, "test_fn_hello_world/"))
+            fi.add_files(os.path.join(self.path, "test_fn_hello_world"))
             response = fi.invoke(self.url)
             self.assertEqual(None, response.build_out.stderr)
             self.assertEqual(None, response.cmd_out.stderr)
@@ -34,3 +34,13 @@ class TestInvoke(unittest.TestCase):
             response = fi.invoke(self.url)
             self.assertEqual(None, response.build_out.stderr)
             self.assertNotEqual(None, response.cmd_out.stderr)
+
+    def test_with_stdin(self):
+        with FunctronInvocation("test-hello-world-stdin") as fi:
+            fi.set_dockerfile(self.get_path("test_fn_hello_world"))
+            fi.add_files(os.path.join(self.path, "test_fn_stdin"))
+            response = fi.invoke(self.url, "Functron User!".encode("utf8"))
+            self.assertEqual(None, response.build_out.stderr)
+            self.assertEqual(None, response.cmd_out.stderr)
+            self.assertEqual(b"Hello Functron User!\n", response.cmd_out.stdout)
+

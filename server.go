@@ -214,7 +214,7 @@ func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 
 	// Call `docker run` on that image and capture stdin and stdout
 	volumeSpec := fmt.Sprintf("%s:/data", dir)
-	execCmd := exec.Command("docker", "run", "--stop-timeout", "5", "-v", volumeSpec, tag)
+	execCmd := exec.Command("docker", "run", "-i", "--stop-timeout", "5", "-v", volumeSpec, tag)
 	log.Printf("Doing '%s'...", execCmd.Args)
 	execCmd.Dir = dir
 	execCmd.Stdin = stdInDecoder
