@@ -1,0 +1,3 @@
+[submodule "pyfunctron"]
+	path = pyfunctron
+	url = git@github.com:Sentimentron/pyfunctron.git
