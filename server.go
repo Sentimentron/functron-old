@@ -106,6 +106,9 @@ func UnpackTarIntoDirectory(reader *tar.Reader, dir string) error {
 	return nil
 }
 
+// ExecuteFunction reads a HTTP POST request as JSON, unpacks it, builds and
+// runs commands inside the container, and returns the response alongside any
+// errors. It's what gets run when you go to /v1/exec.
 func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 
 	//
@@ -302,6 +305,12 @@ func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 	JSON(out, w)
 }
 
+// HandlePing deliberately does nothing and just returns a status code of 200.
+// It's here so that clients can check that they can see Functron.
+func HandlePing(w http.ResponseWriter, req *http.Request) {
+
+}
+
 func logRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
@@ -310,6 +319,8 @@ func logRequest(handler http.Handler) http.Handler {
 }
 
 func main() {
-	http.HandleFunc("/", ExecuteFunction)
-	log.Fatal(http.ListenAndServe(":8081", logRequest(http.DefaultServeMux)))
+	log.Print("functron is starting...")
+	http.HandleFunc("/v1/exec", ExecuteFunction)
+	http.HandleFunc("/v1/ping", HandlePing)
+	log.Fatal(http.ListenAndServe("0.0.0.0:8081", logRequest(http.DefaultServeMux)))
 }
