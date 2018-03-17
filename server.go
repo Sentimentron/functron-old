@@ -65,6 +65,18 @@ func GenerateTemporaryName(baseName string) string {
 	return fmt.Sprintf("functron-%s-%s:1.0", baseName, RandStringRunes(5))
 }
 
+// GenerateSharedTemporaryDirectory creates a specially prefix temporary
+// directory. It does this so that when functron is being run under a
+// docker-inside-docker configuration, the directory is meaningful for both
+// the server (running inside a container) and the host daemon which fulfills
+// functron's request.
+func GenerateSharedTemporaryDirectory() (string, error) {
+	// Retrieve the operating system's temporary directory
+	tmp := os.TempDir()
+	tmpPrefix := path.Join(tmp, "functron")
+	return ioutil.TempDir(tmpPrefix, "functron-invocation")
+}
+
 func UnpackTarIntoDirectory(reader *tar.Reader, dir string) error {
 	for {
 		// Read the next entry in the file
@@ -183,13 +195,13 @@ func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 	base64Decoder := base64.NewDecoder(base64.StdEncoding, buildContextReader)
 
 	// Create a temporary directory for running `docker build`
-	dir, err := ioutil.TempDir(os.TempDir(), "functron")
+	dir, err := GenerateSharedTemporaryDirectory()
 	if err != nil {
 		out["Errors"] = "DockerBuildTempDir"
 		JSON(out, w)
 		return
 	}
-	log.Printf("Created temp directory at: '%s'", dir)
+	log.Printf("Using temp directory at: '%s'", dir)
 
 	// Write the docker file into that directory
 	f, err := os.Create(path.Join(dir, "Dockerfile"))
