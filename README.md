@@ -49,4 +49,18 @@ can rely on.
 `Timeout` consists of the maximum time that this function is allowed to run. If execution exceeds this
 time, the container will be killed automatically.
 
-A reference client is provided in the `python/` directory.
+A reference client is provided by `pyfunctron`, see the `python/` directory.
+
+## How do I install and run Functron?
+
+_functron_ can either run stand-alone, or it can be run inside a docker container.
+
+### Running _functron_ stand-alone
+
+If you have access to the `docker` command in your environment, just run `go run server.go` as your current user. Functron will listen for requests on http://localhost:8081
+
+### Running _functron_ inside a container
+
+Run `docker build -t functron .` to build and tag a Docker image. It should successfully build. Then, run `docker run -t -v /var/run/docker.sock:/var/run/docker.sock -v /tmp/functron:/tmp/functron -p 8081:8081 functron:latest`
+
+
