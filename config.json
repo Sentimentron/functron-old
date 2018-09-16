@@ -1,0 +1,31 @@
+{
+  "port": 5005,
+  "repositronURL": "http://localhost:8000/",
+  "slots": [
+    {
+      "tags": ["cpu"],
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "-1"
+      },
+      "cmdPrefix": "taskset -c 0 "
+    },
+    {
+      "tags": ["cpu"],
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "-1"
+      },
+      "cmdPrefix": "taskset -c 1 "
+    },
+    {
+      "tags": ["cpu"],
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "-1"
+      },
+      "cmdPrefix": "taskset -c 2 "
+    },
+    {
+      "tags": ["gpu", "cpu"],
+      "cmdPrefix": "taskset -c 3 "
+    }
+  ]
+}

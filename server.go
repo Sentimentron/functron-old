@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"github.com/Sentimentron/functron/configuration"
 )
 
 // Functron implements a very basic model for running-on-demand functions:
@@ -332,6 +333,14 @@ func logRequest(handler http.Handler) http.Handler {
 
 func main() {
 	log.Print("functron is starting...")
+
+	// Read the configuration file
+	_, err := configuration.ReadConfiguration("config.json")
+	if err != nil {
+		log.Print("ERROR: could not read configuration file")
+		log.Fatal(err)
+	}
+
 	http.HandleFunc("/v1/exec", ExecuteFunction)
 	http.HandleFunc("/v1/ping", HandlePing)
 	log.Fatal(http.ListenAndServe("0.0.0.0:8081", logRequest(http.DefaultServeMux)))
