@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 	"github.com/Sentimentron/functron/configuration"
+	"github.com/Sentimentron/repositron/client/go/repoclient"
 )
 
 // Functron implements a very basic model for running-on-demand functions:
@@ -335,11 +336,22 @@ func main() {
 	log.Print("functron is starting...")
 
 	// Read the configuration file
-	_, err := configuration.ReadConfiguration("config.json")
+	c, err := configuration.ReadConfiguration("config.json")
 	if err != nil {
 		log.Print("ERROR: could not read configuration file")
 		log.Fatal(err)
 	}
+
+	// Open a connection to Repositron
+	log.Printf("Connecting to %s...", c.RepositronURL)
+	_, err = repoclient.Connect(c.RepositronURL)
+	if err != nil {
+		log.Print("ERROR: could not connect to repositron")
+		log.Fatal(err)
+	}
+	log.Printf("Connected")
+
+	
 
 	http.HandleFunc("/v1/exec", ExecuteFunction)
 	http.HandleFunc("/v1/ping", HandlePing)
