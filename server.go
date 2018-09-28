@@ -11,7 +11,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -21,6 +20,7 @@ import (
 	"time"
 	"github.com/Sentimentron/functron/configuration"
 	"github.com/Sentimentron/repositron/client/go/repoclient"
+	"github.com/Sentimentron/functron/utils"
 )
 
 // Functron implements a very basic model for running-on-demand functions:
@@ -51,73 +51,6 @@ type Request struct {
 
 func JSON(d map[string]interface{}, w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(d)
-}
-
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz")
-
-func RandStringRunes(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	return string(b)
-}
-
-func GenerateTemporaryName(baseName string) string {
-	return fmt.Sprintf("functron-%s-%s:1.0", baseName, RandStringRunes(5))
-}
-
-// GenerateSharedTemporaryDirectory creates a specially prefix temporary
-// directory. It does this so that when functron is being run under a
-// docker-inside-docker configuration, the directory is meaningful for both
-// the server (running inside a container) and the host daemon which fulfills
-// functron's request.
-func GenerateSharedTemporaryDirectory() (string, error) {
-	// Retrieve the operating system's temporary directory
-	tmp := os.TempDir()
-	tmpPrefix := path.Join(tmp, "functron")
-	return ioutil.TempDir(tmpPrefix, "functron-invocation")
-}
-
-func UnpackTarIntoDirectory(reader *tar.Reader, dir string) error {
-	for {
-		// Read the next entry in the file
-		header, err := reader.Next()
-		switch {
-		case err == io.EOF:
-			return nil
-		case err != nil:
-			return err
-		case header == nil:
-			continue
-		}
-		// Check that the entry is well-formed
-		target := filepath.Join(dir, header.Name)
-		absTarget, err := filepath.Abs(target)
-		if !filepath.HasPrefix(absTarget, dir) {
-			return fmt.Errorf("DirectoryUnpackSecurityError: expected prefix with '{}', have '{}'", dir, absTarget)
-		}
-		target = absTarget
-		// Do something
-		switch header.Typeflag {
-		case tar.TypeDir:
-			permBits := header.FileInfo().Mode() & 0x1F
-			if err := os.MkdirAll(absTarget, permBits); err != nil {
-				return fmt.Errorf("UnpackError: could not create directory at '{}' (error was '{}')", absTarget, err)
-			}
-		case tar.TypeReg:
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			if _, err := io.Copy(f, reader); err != nil {
-				return fmt.Errorf("UnpackError: could not create file at '{}' (error was '{}')", absTarget, err)
-			}
-		}
-	}
-	return nil
 }
 
 // ExecuteFunction reads a HTTP POST request as JSON, unpacks it, builds and
@@ -197,7 +130,7 @@ func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 	base64Decoder := base64.NewDecoder(base64.StdEncoding, buildContextReader)
 
 	// Create a temporary directory for running `docker build`
-	dir, err := GenerateSharedTemporaryDirectory()
+	dir, err := utils.GenerateSharedTemporaryDirectory()
 	if err != nil {
 		out["Errors"] = "DockerBuildTempDir"
 		JSON(out, w)
@@ -223,10 +156,10 @@ func ExecuteFunction(w http.ResponseWriter, req *http.Request) {
 
 	// Unpack the tar file into that directory (do not allow escaping)
 	tr := tar.NewReader(base64Decoder)
-	err = UnpackTarIntoDirectory(tr, dir)
+	err = utils.UnpackTarIntoDirectory(tr, dir)
 
 	// Create a temporary tag for this image
-	tag := GenerateTemporaryName(r.FnName)
+	tag := utils.GenerateTemporaryName(r.FnName)
 	out["TempName"] = tag
 
 	// Call `docker build` to add that image into this machine
@@ -343,7 +276,7 @@ func main() {
 	}
 
 	// Open a connection to Repositron
-	log.Printf("Connecting to %s...", c.RepositronURL)
+	log.Printf("Connecting to repositron server at %s...", c.RepositronURL)
 	_, err = repoclient.Connect(c.RepositronURL)
 	if err != nil {
 		log.Print("ERROR: could not connect to repositron")
