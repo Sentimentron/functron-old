@@ -30,7 +30,7 @@ type FunctronImage struct {
 	Dockerfile          string      `json:"dockerInstructions" db:"docker_file"`
 	PreCommitScript     string      `json:"preCommitScript" db:"pre_commit_script"`
 	Created             time.Time   `json:"created" db:"created"`
-	ScheduledForBuild   *time.Time  `json:"scheduled" db:"scheduled_build"`
+	ScheduledForBuild   time.Time   `json:"scheduled" db:"scheduled_build"`
 	Committed           *time.Time  `json:"finished" db:"finished"`
 	ScheduledForRemoval *time.Time  `json:"scheduledRemoval" db:"scheduled_removal"`
 	Status              ImageStatus `json:"status" db:"status"`

@@ -35,6 +35,10 @@ type ImageStore interface {
 	// Updates the provided image argument in-place.
 	UpdateStatus(image *models.FunctronImage, newStatus models.ImageStatus) error
 
+	// RetrieveBuildPlan returns a struct which contains the images
+	// which need to be cleaned up, built etc.
+	RetrieveBuildPlan() (*models.BuildPlan, error)
+
 }
 
 // DockerCommandRunner is an interface over docker, provided for testing.

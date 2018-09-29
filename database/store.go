@@ -137,3 +137,41 @@ func (s *Store) UpdateStatus (image *models.FunctronImage, newStatus models.Imag
 	return s.RetrieveImageById(image.Id)
 
 }
+
+func (s *Store) RetrieveBuildPlan() (*models.BuildPlan, error) {
+
+	// TODO: test me
+	var ret models.BuildPlan
+
+	// Return a list of images which need cleanup
+	imagesNeedingCleanup := make([]models.FunctronImage, 0)
+	err := s.handle.Select(&imagesNeedingCleanup, `SELECT * FROM images 
+														  WHERE scheduled_removal < $1 
+														  AND status != $2`, time.Now(), models.ImageStatusCleanedUp)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build a list of images which need building
+	imagesNeedingBuild := make([]models.FunctronImage, 0)
+	err = s.handle.Select(&imagesNeedingBuild, `SELECT * FROM images 
+														  WHERE scheduled_build < $1 
+														  AND status == $2`, time.Now(), models.ImageStatusScheduledForBuild)
+	if err != nil {
+		return nil, err
+	}
+
+	// Assumption is that if the images hang around, nothing bad happens
+	// So find the minimum date from the images that need building
+	// Seek an arbitrarily long way into the future
+	minimumDate := time.Now().Add(28 * 24 * time.Hour)
+	for _, img := range imagesNeedingBuild {
+		if img.ScheduledForBuild.Sub(minimumDate) < 0 {
+			minimumDate = img.ScheduledForBuild
+		}
+	}
+
+	ret.ImagesNeedingBuild = imagesNeedingBuild
+	ret.ImagesNeedingCleanup = imagesNeedingCleanup
+	ret.NextTick = minimumDate
+}
